@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "RN Audio Player",
+    "slug": "rn-audio-player",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#121212"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.thesis.rnaudioplayer",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "platforms": ["ios"],
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}
