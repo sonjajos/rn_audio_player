@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useAudioTrackStore } from "../stores/useAudioTrackStore";
 import { useFFTData } from "../hooks/useFFTData";
-import PillarVisualizer from "./CircularVisualizer";
+import Visualizer from "./Visualizer";
 
 const MINI_BAND_COUNT = 16;
 const BAR_HEIGHT = 80;
@@ -61,7 +61,7 @@ export default function MiniPlayerBar({ onPress }: MiniPlayerBarProps) {
       activeOpacity={0.9}
     >
       <View style={styles.visualizer}>
-        <PillarVisualizer
+        <Visualizer
           bandValues={bandValues}
           bandCount={MINI_BAND_COUNT}
           width={BAR_HEIGHT}

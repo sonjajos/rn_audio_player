@@ -9,7 +9,7 @@ import {
 import { useAudioTrackStore } from "../stores/useAudioTrackStore";
 import { audioPlayerService } from "../services/AudioPlayerService";
 import { useFFTData } from "../hooks/useFFTData";
-import PillarVisualizer from "../components/CircularVisualizer";
+import Visualizer from "../components/Visualizer";
 import PlaybackControls from "../components/PlaybackControls";
 
 const BAND_COUNTS = [16, 32, 64, 128] as const;
@@ -55,7 +55,7 @@ export default function AudioPlayerScreen() {
 
       {/* Expanded visualizer fills available space, centered vertically */}
       <View style={styles.visualizerContainer}>
-        <PillarVisualizer
+        <Visualizer
           bandValues={bandValues}
           bandCount={bandCount}
           width={visualizerWidth}
@@ -72,7 +72,7 @@ export default function AudioPlayerScreen() {
         onPress={cycleBandCount}
         activeOpacity={0.7}
       >
-        <Text style={styles.bandToggleText}>{bandCount}b</Text>
+        <Text style={styles.bandToggleText}>{bandCount * 2}b</Text>
       </TouchableOpacity>
     </View>
   );
