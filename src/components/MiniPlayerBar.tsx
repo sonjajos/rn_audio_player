@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useAudioTrackStore } from "../stores/useAudioTrackStore";
 import { useFFTData } from "../hooks/useFFTData";
-import PillarVisualizer from "./PillarVisualizer";
+import PillarVisualizer from "./CircularVisualizer";
 
 const MINI_BAND_COUNT = 16;
 const BAR_HEIGHT = 80;

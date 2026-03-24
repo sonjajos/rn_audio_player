@@ -9,7 +9,7 @@ import {
 import { useAudioTrackStore } from "../stores/useAudioTrackStore";
 import { audioPlayerService } from "../services/AudioPlayerService";
 import { useFFTData } from "../hooks/useFFTData";
-import PillarVisualizer from "../components/PillarVisualizer";
+import PillarVisualizer from "../components/CircularVisualizer";
 import PlaybackControls from "../components/PlaybackControls";
 
 const BAND_COUNTS = [16, 32, 64, 128] as const;
