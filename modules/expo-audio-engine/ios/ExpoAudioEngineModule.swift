@@ -41,10 +41,6 @@ public class ExpoAudioEngineModule: Module {
             self.nowPlayingService.clearNowPlaying()
         }
 
-        Function("seek") { (positionMs: Int) in
-            self.player.seek(to: positionMs)
-        }
-
         Function("setBandCount") { (count: Int) in
             self.player.setBandCount(count)
         }
@@ -61,8 +57,7 @@ public class ExpoAudioEngineModule: Module {
 
         // --- Metadata (uses AVAudioFile + AVAsset, async) ---
 
-        AsyncFunction("getMetadata") { (filePath: String) -> [String: Any] in
-            // Handle both file:// URIs and plain paths
+        AsyncFunction("getMetadata") { (filePath: String) -> [String: Any] in            // Handle both file:// URIs and plain paths
             let url: URL
             if filePath.hasPrefix("file://") {
                 guard let parsedURL = URL(string: filePath) else {
@@ -99,6 +94,12 @@ public class ExpoAudioEngineModule: Module {
                 "artist": artist ?? "Unknown Artist",
                 "durationMs": durationMs,
             ]
+        }
+
+        // --- Waveform Peaks (decodes full file, CPU-bound, async) ---
+
+        AsyncFunction("generateWaveform") { (filePath: String, barCount: Int) -> [Float] in
+            try self.player.generateWaveform(filePath: filePath, barCount: UInt32(barCount))
         }
     }
 

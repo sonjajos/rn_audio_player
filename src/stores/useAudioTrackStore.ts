@@ -11,6 +11,7 @@ interface AudioTrackState {
   currentIndex: number;
 
   bandCount: number;
+  waveformPeaks: number[] | null;
 
   playAt: (index: number, queue?: AudioTrack[]) => Promise<void>;
   pause: () => void;
@@ -18,9 +19,9 @@ interface AudioTrackState {
   stop: () => void;
   next: () => Promise<void>;
   previous: () => Promise<void>;
-  seek: (positionMs: number) => void;
   updatePosition: (position: number) => void;
   setBandCount: (count: number) => void;
+  loadWaveform: (filePath: string) => Promise<void>;
 }
 
 export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
@@ -37,10 +38,17 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
     get().next();
   });
 
-  // Wire up state changes from native events (interruptions, lock screen, route changes)
-  audioPlayerService.setOnStateChange((isPlaying: boolean) => {
-    set({ isPlaying });
-  });
+  // Wire up state changes from native events — delivers isPlaying + position + duration every ~100ms
+  audioPlayerService.setOnStateChange(
+    (isPlaying: boolean, positionMs: number, durationMs: number) => {
+      set((state) => ({
+        isPlaying,
+        // Only advance position while playing — ignore resets sent on pause/stop events
+        position: isPlaying ? positionMs : state.position,
+        ...(durationMs > 0 ? { duration: durationMs } : {}),
+      }));
+    },
+  );
 
   return {
     currentTrack: null,
@@ -50,6 +58,7 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
     queue: [],
     currentIndex: -1,
     bandCount: 16,
+    waveformPeaks: null,
 
     playAt: async (index: number, queue?: AudioTrack[]) => {
       const trackQueue = queue ?? get().queue;
@@ -62,6 +71,7 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
         currentIndex: index,
         position: 0,
         duration: track.duration ?? 0,
+        waveformPeaks: null,
       });
       try {
         await audioPlayerService.play(
@@ -74,6 +84,8 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
           isPlaying: true,
           duration: audioPlayerService.durationMs,
         });
+        // Load waveform in background (non-blocking)
+        get().loadWaveform(track.filePath);
       } catch (error) {
         console.error("Playback error:", error);
         set({ isPlaying: false });
@@ -111,11 +123,6 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
       await get().playAt(prevIndex);
     },
 
-    seek: (positionMs: number) => {
-      audioPlayerService.seek(positionMs);
-      set({ position: positionMs });
-    },
-
     updatePosition: (position: number) => {
       set({ position });
     },
@@ -123,6 +130,16 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
     setBandCount: (count: number) => {
       audioPlayerService.setBandCount(count);
       set({ bandCount: count });
+    },
+
+    loadWaveform: async (filePath: string) => {
+      try {
+        const peaks = await audioPlayerService.loadWaveform(filePath);
+        set({ waveformPeaks: peaks });
+      } catch (error) {
+        console.warn("[WaveformSeeker] Failed to generate waveform:", error);
+        set({ waveformPeaks: null });
+      }
     },
   };
 });

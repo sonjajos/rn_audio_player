@@ -5,7 +5,11 @@ import type {
 } from "@/modules/expo-audio-engine";
 
 type TrackCompletedCallback = () => void;
-type StateChangeCallback = (isPlaying: boolean) => void;
+type StateChangeCallback = (
+  isPlaying: boolean,
+  positionMs: number,
+  durationMs: number,
+) => void;
 
 class AudioPlayerService {
   private _isPlaying = false;
@@ -24,13 +28,11 @@ class AudioPlayerService {
   }
 
   private handleStateChanged = (event: StateChangedEvent) => {
-    const wasPlaying = this._isPlaying;
     this._isPlaying = event.state === "playing";
     this._positionMs = event.positionMs;
     this._durationMs = event.durationMs;
-    if (wasPlaying !== this._isPlaying) {
-      this.onStateChange?.(this._isPlaying);
-    }
+    // Always propagate — store needs live position + duration, not just play/pause transitions
+    this.onStateChange?.(this._isPlaying, event.positionMs, event.durationMs);
   };
 
   private handleTrackCompleted = () => {
@@ -83,12 +85,12 @@ class AudioPlayerService {
     ExpoAudioEngine.stop();
   }
 
-  seek(positionMs: number) {
-    ExpoAudioEngine.seek(positionMs);
-  }
-
   setBandCount(count: number) {
     ExpoAudioEngine.setBandCount(count);
+  }
+
+  async loadWaveform(filePath: string, barCount = 300): Promise<number[]> {
+    return ExpoAudioEngine.generateWaveform(filePath, barCount);
   }
 
   getCurrentPositionMs(): number {

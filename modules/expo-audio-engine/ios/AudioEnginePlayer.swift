@@ -349,6 +349,74 @@ class AudioEnginePlayer {
         bandCount = count
     }
 
+    // MARK: - Waveform Peaks
+
+    /// Decode the file at filePath to PCM float32 mono and compute
+    /// bar_count RMS-normalized peaks via the C++ waveform library.
+    func generateWaveform(filePath: String, barCount: UInt32) throws -> [Float] {
+        let url: URL
+        if filePath.hasPrefix("file://") {
+            guard let parsedURL = URL(string: filePath) else {
+                throw NSError(
+                    domain: "AudioEnginePlayer", code: 10,
+                    userInfo: [NSLocalizedDescriptionKey: "Invalid file URI: \(filePath)"])
+            }
+            url = parsedURL
+        } else {
+            url = URL(fileURLWithPath: filePath)
+        }
+
+        let file = try AVAudioFile(forReading: url)
+        let format = file.processingFormat
+        let totalFrames = AVAudioFrameCount(file.length)
+
+        guard totalFrames > 0 else {
+            throw NSError(
+                domain: "AudioEnginePlayer", code: 11,
+                userInfo: [NSLocalizedDescriptionKey: "Audio file has no frames"])
+        }
+
+        guard let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format,
+                                               frameCapacity: totalFrames) else {
+            throw NSError(
+                domain: "AudioEnginePlayer", code: 12,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to allocate PCM buffer"])
+        }
+        try file.read(into: pcmBuffer)
+
+        let frameCount = Int(pcmBuffer.frameLength)
+        let channelCount = Int(format.channelCount)
+
+        guard let channelData = pcmBuffer.floatChannelData else {
+            throw NSError(
+                domain: "AudioEnginePlayer", code: 13,
+                userInfo: [NSLocalizedDescriptionKey: "No float channel data in buffer"])
+        }
+
+        // Mix all channels to mono using vDSP
+        var mono = [Float](repeating: 0, count: frameCount)
+        if channelCount == 1 {
+            mono = Array(UnsafeBufferPointer(start: channelData[0], count: frameCount))
+        } else {
+            for ch in 0..<channelCount {
+                let src = channelData[ch]
+                vDSP_vadd(mono, 1, src, 1, &mono, 1, vDSP_Length(frameCount))
+            }
+            var divisor = Float(channelCount)
+            vDSP_vsdiv(mono, 1, &divisor, &mono, 1, vDSP_Length(frameCount))
+        }
+
+        // Call C++ via Obj-C bridge
+        let peaksNS = try WaveformCppBridge.generatePeaks(
+            fromBuffer: mono,
+            frameCount: UInt64(frameCount),
+            sampleRate: format.sampleRate,
+            barCount: barCount
+        )
+
+        return peaksNS.map { $0.floatValue }
+    }
+
     // MARK: - Position Tracking
 
     func currentPositionMs() -> Int {
@@ -372,16 +440,27 @@ class AudioEnginePlayer {
     }
 
     private func startPositionTimer() {
-        positionTimer?.invalidate()
-        positionTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
-            [weak self] _ in
-            self?.notifyState()
+        // Timer.scheduledTimer requires a thread with a RunLoop.
+        // AsyncFunction("load") runs on a background thread — dispatching to
+        // main guarantees the timer is installed on the main RunLoop.
+        let start = { [weak self] in
+            guard let self = self else { return }
+            self.positionTimer?.invalidate()
+            self.positionTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
+                [weak self] _ in
+                self?.notifyState()
+            }
         }
+        if Thread.isMainThread { start() } else { DispatchQueue.main.async(execute: start) }
     }
 
     private func stopPositionTimer() {
-        positionTimer?.invalidate()
-        positionTimer = nil
+        // Must invalidate on the same thread (main) where the timer was installed.
+        let stop = { [weak self] in
+            self?.positionTimer?.invalidate()
+            self?.positionTimer = nil
+        }
+        if Thread.isMainThread { stop() } else { DispatchQueue.main.async(execute: stop) }
     }
 
     // MARK: - Schedule Playback

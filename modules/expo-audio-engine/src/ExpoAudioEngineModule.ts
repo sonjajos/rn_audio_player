@@ -9,11 +9,11 @@ declare class ExpoAudioEngineModule extends NativeModule<ExpoAudioEngineModuleEv
   pause(): void;
   resume(): void;
   stop(): void;
-  seek(positionMs: number): void;
   setBandCount(count: number): void;
   getPosition(): number;
   getIsPlaying(): boolean;
   getMetadata(filePath: string): Promise<TrackMetadata>;
+  generateWaveform(filePath: string, barCount: number): Promise<number[]>;
 }
 
 export default requireNativeModule<ExpoAudioEngineModule>("ExpoAudioEngine");

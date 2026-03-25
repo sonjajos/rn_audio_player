@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useAudioTrackStore } from "../stores/useAudioTrackStore";
-import { audioPlayerService } from "../services/AudioPlayerService";
 import { useFFTData } from "../hooks/useFFTData";
 import Visualizer from "../components/Visualizer";
 import PlaybackControls from "../components/PlaybackControls";
+import WaveformSeeker from "../components/WaveformSeeker";
 
 const BAND_COUNTS = [16, 32, 64, 128] as const;
 
@@ -20,19 +20,14 @@ export default function AudioPlayerScreen() {
   const isPlaying = useAudioTrackStore((s) => s.isPlaying);
   const bandCount = useAudioTrackStore((s) => s.bandCount);
   const setBandCount = useAudioTrackStore((s) => s.setBandCount);
+  const position = useAudioTrackStore((s) => s.position);
+  const duration = useAudioTrackStore((s) => s.duration);
+  const waveformPeaks = useAudioTrackStore((s) => s.waveformPeaks);
 
   const bandValues = useFFTData(bandCount, isPlaying);
 
-  // Position tracking
-  const updatePosition = useAudioTrackStore((s) => s.updatePosition);
-  useEffect(() => {
-    if (!isPlaying) return;
-    const interval = setInterval(() => {
-      const pos = audioPlayerService.getCurrentPositionMs();
-      updatePosition(pos);
-    }, 100);
-    return () => clearInterval(interval);
-  }, [isPlaying, updatePosition]);
+  // Position + duration are updated automatically via native onStateChanged events
+  // (every ~100ms from Swift positionTimer → AudioPlayerService → store)
 
   const cycleBandCount = useCallback(() => {
     const idx = BAND_COUNTS.indexOf(bandCount as (typeof BAND_COUNTS)[number]);
@@ -63,9 +58,21 @@ export default function AudioPlayerScreen() {
         />
       </View>
 
-      <View style={styles.controlsSpacer} />
-      <PlaybackControls />
-      <View style={styles.bottomSpacer} />
+      {/* Waveform + controls pinned to bottom */}
+      <View style={styles.bottomSection}>
+        <View style={styles.waveformContainer}>
+          <WaveformSeeker
+            peaks={waveformPeaks}
+            currentPositionMs={position}
+            durationMs={duration}
+            width={visualizerWidth}
+            height={56}
+            isPlaying={isPlaying}
+          />
+        </View>
+        <View style={styles.controlsSpacer} />
+        <PlaybackControls />
+      </View>
 
       <TouchableOpacity
         style={styles.bandToggle}
@@ -87,7 +94,7 @@ const styles = StyleSheet.create({
   },
   trackInfo: {
     alignItems: "center",
-    marginBottom: 48,
+    marginBottom: 16,
     paddingHorizontal: 32,
   },
   title: {
@@ -105,11 +112,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
   },
+  bottomSection: {
+    width: "100%",
+    alignItems: "center",
+  },
+  waveformContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 0,
+  },
   controlsSpacer: {
-    height: 24,
+    height: 40,
   },
   bottomSpacer: {
-    height: 48,
+    height: 64,
   },
   bandToggle: {
     position: "absolute",
