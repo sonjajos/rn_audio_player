@@ -19,7 +19,6 @@ interface AudioTrackState {
   stop: () => void;
   next: () => Promise<void>;
   previous: () => Promise<void>;
-  updatePosition: (position: number) => void;
   setBandCount: (count: number) => void;
   loadWaveform: (filePath: string) => Promise<void>;
 }
@@ -121,10 +120,6 @@ export const useAudioTrackStore = create<AudioTrackState>((set, get) => {
       const current = currentIndex < 0 ? 0 : currentIndex;
       const prevIndex = (current - 1 + queue.length) % queue.length;
       await get().playAt(prevIndex);
-    },
-
-    updatePosition: (position: number) => {
-      set({ position });
     },
 
     setBandCount: (count: number) => {

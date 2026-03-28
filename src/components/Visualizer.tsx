@@ -2,8 +2,6 @@ import React from "react";
 import { SharedValue } from "react-native-reanimated";
 import { RENDERER } from "../config";
 
-console.log({ RENDERER });
-
 // Lazy imports — only the active renderer's module is loaded.
 const SkiaVisualizer =
   RENDERER === "skia" ? require("./SkiaCircularVisualizer").default : null;

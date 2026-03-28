@@ -33,7 +33,8 @@ class AudioEnginePlayer {
 
     // MARK: - Position Timer
 
-    private var positionTimer: Timer?
+    private var positionTimer: DispatchSourceTimer?
+    private let positionTimerQueue = DispatchQueue(label: "com.audioplayer.position", qos: .utility)
 
     // MARK: - FFT Configuration
 
@@ -85,7 +86,7 @@ class AudioEnginePlayer {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        positionTimer?.invalidate()
+        positionTimer?.cancel()
         removeTap()
         engine.stop()
         if let setup = fftSetup {
@@ -440,27 +441,19 @@ class AudioEnginePlayer {
     }
 
     private func startPositionTimer() {
-        // Timer.scheduledTimer requires a thread with a RunLoop.
-        // AsyncFunction("load") runs on a background thread — dispatching to
-        // main guarantees the timer is installed on the main RunLoop.
-        let start = { [weak self] in
-            guard let self = self else { return }
-            self.positionTimer?.invalidate()
-            self.positionTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
-                [weak self] _ in
-                self?.notifyState()
-            }
+        positionTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: positionTimerQueue)
+        timer.schedule(deadline: .now() + 0.1, repeating: 0.1, leeway: .milliseconds(10))
+        timer.setEventHandler { [weak self] in
+            self?.notifyState()
         }
-        if Thread.isMainThread { start() } else { DispatchQueue.main.async(execute: start) }
+        timer.resume()
+        positionTimer = timer
     }
 
     private func stopPositionTimer() {
-        // Must invalidate on the same thread (main) where the timer was installed.
-        let stop = { [weak self] in
-            self?.positionTimer?.invalidate()
-            self?.positionTimer = nil
-        }
-        if Thread.isMainThread { stop() } else { DispatchQueue.main.async(execute: stop) }
+        positionTimer?.cancel()
+        positionTimer = nil
     }
 
     // MARK: - Schedule Playback
@@ -593,9 +586,7 @@ class AudioEnginePlayer {
         let endTime = CACurrentMediaTime()
         let fftTimeUs = Int64((endTime - startTime) * 1_000_000)
 
-        DispatchQueue.main.async { [weak self] in
-            self?.onFFTData?(bands, fftTimeUs)
-        }
+        onFFTData?(bands, fftTimeUs)
     }
 
     /// Groups FFT magnitude bins into bands using logarithmic spacing.

@@ -21,10 +21,21 @@ class AudioPlayerService {
   private _lockScreenNextCallback: (() => void) | null = null;
   private _lockScreenPreviousCallback: (() => void) | null = null;
 
+  private readonly subscriptions: ReturnType<
+    typeof ExpoAudioEngine.addListener
+  >[];
+
   constructor() {
-    ExpoAudioEngine.addListener("onStateChanged", this.handleStateChanged);
-    ExpoAudioEngine.addListener("onTrackCompleted", this.handleTrackCompleted);
-    ExpoAudioEngine.addListener("onCommand", this.handleCommand);
+    this.subscriptions = [
+      ExpoAudioEngine.addListener("onStateChanged", this.handleStateChanged),
+      ExpoAudioEngine.addListener("onTrackCompleted", this.handleTrackCompleted),
+      ExpoAudioEngine.addListener("onCommand", this.handleCommand),
+    ];
+  }
+
+  destroy() {
+    this.subscriptions.forEach((s) => s.remove());
+    this.subscriptions.length = 0;
   }
 
   private handleStateChanged = (event: StateChangedEvent) => {
